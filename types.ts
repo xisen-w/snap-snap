@@ -6,6 +6,7 @@ export interface PhotoData {
   x: number;
   y: number;
   rotation: number;
+  scale: number;
   isDeveloping: boolean;
   borderColor?: string;
 }

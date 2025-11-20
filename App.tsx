@@ -22,6 +22,7 @@ export default function App() {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [currentPrint, setCurrentPrint] = useState<{ url: string; timestamp: number; borderColor: string } | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   
   // When the camera takes a picture
   const handleCapture = (imageUrl: string) => {
@@ -63,12 +64,14 @@ export default function App() {
       x: initialX,
       y: initialY,
       rotation: randomRotation,
+      scale: 1,
       isDeveloping: true,
       borderColor: currentPrint.borderColor
     };
 
     // Add to wall
     setPhotos((prev) => [...prev, newPhoto]);
+    setSelectedPhotoId(newId);
     
     // Clear from camera
     setCurrentPrint(null);
@@ -79,16 +82,24 @@ export default function App() {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, x, y } : p));
   };
 
+  const updatePhotoTransform = (id: string, rotation: number, scale: number) => {
+    setPhotos(prev => prev.map(p => p.id === id ? { ...p, rotation, scale } : p));
+  };
+
   const deletePhoto = (id: string) => {
     setPhotos(prev => prev.filter(p => p.id !== id));
   };
 
   return (
-    <div className="w-screen h-screen overflow-hidden relative bg-slate-200">
+    <div 
+      className="w-screen h-screen overflow-hidden relative bg-slate-200"
+      onMouseDown={() => setSelectedPhotoId(null)} // Deselect when clicking background
+    >
       {/* Instructional Text */}
       <div className="absolute top-10 left-0 w-full text-center pointer-events-none z-0 opacity-50">
          <h1 className="font-hand text-4xl text-slate-400 mb-2">Snap & Drag</h1>
          <p className="font-sans text-slate-500 text-sm">Take a photo, then drag the print onto the desk.</p>
+         <p className="font-sans text-slate-400 text-xs mt-1">Click a photo to rotate or resize it.</p>
       </div>
 
       {/* The Photo Wall Area (Full Screen) */}
@@ -97,14 +108,17 @@ export default function App() {
           <Photo 
             key={photo.id} 
             data={photo} 
+            isSelected={selectedPhotoId === photo.id}
+            onSelect={() => setSelectedPhotoId(photo.id)}
             onUpdatePosition={updatePhotoPosition} 
+            onUpdateTransform={updatePhotoTransform}
             onDelete={deletePhoto}
           />
         ))}
       </div>
 
       {/* The Camera (Fixed Bottom Left) */}
-      <div className="fixed bottom-10 left-10 z-50">
+      <div className="fixed bottom-0 left-10 z-50 mb-[-20px]">
         <PolaroidCamera 
           onCapture={handleCapture}
           isPrinting={isPrinting}
@@ -115,7 +129,7 @@ export default function App() {
       </div>
 
       {/* Footer/Credits */}
-      <div className="fixed bottom-2 right-4 text-xs text-gray-400 font-sans">
+      <div className="fixed bottom-2 right-4 text-xs text-gray-400 font-sans pointer-events-none">
         RetroSnap Instant Camera
       </div>
     </div>

@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, Zap } from 'lucide-react';
+import { Camera, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface PolaroidCameraProps {
   onCapture: (imageData: string) => void;
@@ -22,6 +22,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [flashActive, setFlashActive] = useState(false);
+  const [isFolded, setIsFolded] = useState(false);
 
   // Initialize Camera
   useEffect(() => {
@@ -54,8 +55,15 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
     };
   }, []);
 
+  // Auto-unfold if printing starts
+  useEffect(() => {
+    if (isPrinting || currentPrintUrl) {
+      setIsFolded(false);
+    }
+  }, [isPrinting, currentPrintUrl]);
+
   const handleShutterPress = useCallback(() => {
-    if (isPrinting) return; 
+    if (isPrinting || isFolded) return; 
     
     setFlashActive(true);
     setTimeout(() => setFlashActive(false), 150);
@@ -139,10 +147,35 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         }, 100);
       }
     }
-  }, [isPrinting, onCapture]);
+  }, [isPrinting, isFolded, onCapture]);
 
   return (
-    <div className="relative w-[320px] h-[340px] select-none">
+    // The container moves down when folded.
+    // We use translate-y-[300px] to hide most of the body, leaving just the top bar visible.
+    <div 
+      className={`relative w-[320px] h-[340px] select-none transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isFolded ? 'translate-y-[270px]' : 'translate-y-0'}`}
+    >
+       {/* FOLD TOGGLE BUTTON - Distinct Tab on Top */}
+       <button 
+          onClick={() => setIsFolded(!isFolded)}
+          className="absolute -top-10 right-6 w-16 h-10 bg-gray-800 rounded-t-xl flex items-center justify-center shadow-md border-t border-x border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors z-50 group"
+          title={isFolded ? "Open Camera" : "Close Camera"}
+       >
+          <div className="flex flex-col items-center gap-0.5">
+             {isFolded ? (
+                <>
+                  <ChevronUp className="text-white w-5 h-5 animate-bounce" />
+                  <span className="text-[8px] text-white font-sans uppercase tracking-wider">Open</span>
+                </>
+             ) : (
+                <>
+                   <ChevronDown className="text-gray-400 w-5 h-5 group-hover:text-white" />
+                </>
+             )}
+          </div>
+       </button>
+
+
        {flashActive && (
         <div className="fixed inset-0 bg-white/80 z-[100] animate-flash pointer-events-none"></div>
       )}
@@ -220,21 +253,30 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         </div>
 
         {/* Top Section (Viewfinder + Flash Block) */}
-        <div className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200">
+        <div 
+          className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => isFolded && setIsFolded(false)}
+        >
+           
+           {isFolded && (
+             <div className="absolute inset-0 flex items-center justify-center text-gray-400 font-sans font-semibold tracking-wider animate-pulse pointer-events-none z-40">
+               CLICK TO OPEN
+             </div>
+           )}
+
            {/* Eject Slot Line */}
            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[260px] h-[6px] bg-[#1a1a1a] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]"></div>
 
            {/* Flash Unit */}
-           <div className="relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden">
+           <div className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-opacity duration-500 ${isFolded ? 'opacity-20' : 'opacity-100'}`}>
              <div className="w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-gray-200 to-gray-400 opacity-80 flex items-center justify-center">
                <Zap className="text-yellow-600 opacity-20 w-6 h-6" />
              </div>
-             {/* Flash glass texture */}
              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNTAgNEgwVjB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-50"></div>
            </div>
 
            {/* Viewfinder (Real Video Feed) */}
-           <div className="relative w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)]">
+           <div className={`relative w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)] transition-opacity duration-500 ${isFolded ? 'opacity-0' : 'opacity-100'}`}>
               {!stream && !permissionError && (
                  <div className="absolute inset-0 flex items-center justify-center">
                     <Camera className="text-gray-600 animate-pulse" />
@@ -258,9 +300,9 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         {/* Shutter Button */}
         <button 
            onClick={handleShutterPress}
-           disabled={isPrinting}
-           className={`absolute -right-4 top-[140px] w-14 h-14 rounded-full bg-red-600 shadow-[inset_0_-4px_4px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.4)] border-4 border-[#cc0000] flex items-center justify-center active:scale-95 active:shadow-inner transition-all z-30 cursor-pointer hover:bg-red-500
-             ${isPrinting ? 'opacity-50 cursor-not-allowed' : ''}
+           disabled={isPrinting || isFolded}
+           className={`absolute -right-4 top-[140px] w-14 h-14 rounded-full bg-red-600 shadow-[inset_0_-4px_4px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.4)] border-4 border-[#cc0000] flex items-center justify-center active:scale-95 active:shadow-inner transition-all duration-500 z-30 cursor-pointer hover:bg-red-500
+             ${(isPrinting || isFolded) ? 'opacity-50 cursor-not-allowed scale-75' : ''}
            `}
            aria-label="Take Photo"
         >
