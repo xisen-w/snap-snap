@@ -6,7 +6,7 @@ interface PolaroidCameraProps {
   isPrinting: boolean;
   currentPrintUrl: string | null;
   currentPrintColor?: string;
-  onDragStartFromCamera: (e: React.MouseEvent) => void;
+  onDragStartFromCamera: (e: React.PointerEvent) => void;
 }
 
 // ---------------------------------------
@@ -20,7 +20,6 @@ const TINT_OPTIONS = [
     vignette: "rgba(15,15,15,0.75)",
     overlay: null,
   },
-  // ⭐️ Ultra ICE White — 极致冷白皮（无黄无红）
   {
     id: "blue",
     name: "Midnight Ice",
@@ -70,9 +69,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
 
   const currentTint = TINT_OPTIONS[selectedTintIndex];
 
-  // ---------------------------------------
-  // INIT CAMERA
-  // ---------------------------------------
   useEffect(() => {
     const startCamera = async () => {
       try {
@@ -99,9 +95,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
     if (isPrinting || currentPrintUrl) setIsFolded(false);
   }, [isPrinting, currentPrintUrl]);
 
-  // =============================================================
-  // 💙 ULTRA ICE PIPELINE
-  // =============================================================
   const handleShutterPress = useCallback(
     (e?: React.MouseEvent) => {
       if (e) {
@@ -130,12 +123,12 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
       canvas.width = size;
       canvas.height = size;
 
-      // Step 1: Base
       ctx.save();
       ctx.translate(size, 0);
       ctx.scale(-1, 1);
 
       let filterString = "";
+
       if (currentTint.id === "blue") {
         if (isFlashEnabled) {
           filterString =
@@ -146,7 +139,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         }
       } else {
         filterString = isFlashEnabled
-          ? "contrast(1.4) brightness(1.3) saturate(1.1) sepia(0.1)"
+          ? "contrast(1.4) brightness(1.3) saturate(1.1) sepia(0.05)"
           : "contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)";
       }
 
@@ -154,7 +147,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
       ctx.drawImage(video, xOffset, yOffset, size, size, 0, 0, size, size);
       ctx.restore();
 
-      // Step 2: Dark Base (Flash)
       if (isFlashEnabled && currentTint.id === "blue") {
         ctx.save();
         ctx.globalCompositeOperation = "multiply";
@@ -163,7 +155,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         ctx.restore();
       }
 
-      // Step 3: Ultra Ice Highlights
       if (currentTint.id === "blue") {
         ctx.save();
         ctx.globalCompositeOperation = "screen";
@@ -181,7 +172,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         ctx.restore();
       }
 
-      // Step 4: Soft bloom (No Flash)
       if (!isFlashEnabled) {
         ctx.save();
         ctx.globalCompositeOperation = "screen";
@@ -192,7 +182,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         ctx.restore();
       }
 
-      // Step 5: Vignette
       ctx.save();
       ctx.globalCompositeOperation = "multiply";
       let gradient;
@@ -221,7 +210,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
       ctx.fillRect(0, 0, size, size);
       ctx.restore();
 
-      // Step 6: Shadows
       if (currentTint.id === "blue") {
         ctx.save();
         ctx.globalCompositeOperation = "multiply";
@@ -230,7 +218,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         ctx.restore();
       }
 
-      // Step 7: Grain
       try {
         const img = ctx.getImageData(0, 0, size, size);
         const data = img.data;
@@ -283,15 +270,15 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         <div className="fixed inset-0 bg-white/80 z-[100] animate-flash pointer-events-none" />
       )}
 
-      {/* Photo eject */}
+      {/* Photo eject - Uses onPointerDown for mobile support */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[240px] h-full pointer-events-none z-0">
         {currentPrintUrl && (
           <div
             className={`absolute top-[20px] w-full p-3 pb-10 shadow-xl transform cursor-grab active:cursor-grabbing pointer-events-auto ${
               isPrinting ? "animate-eject" : "-translate-y-[60%]"
             }`}
-            style={{ height: "290px", backgroundColor: currentPrintColor }}
-            onMouseDown={onDragStartFromCamera}
+            style={{ height: "290px", backgroundColor: currentPrintColor, touchAction: "none" }}
+            onPointerDown={onDragStartFromCamera}
           >
             <div className="w-full h-[216px] bg-black overflow-hidden relative">
               <img
@@ -312,13 +299,11 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
       {/* Camera Body */}
       <div className="relative w-full h-full z-10">
         <div className="absolute top-[80px] w-full h-[260px] bg-[#fdfbf7] rounded-b-[40px] rounded-t-[10px] shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-b-8 border-gray-200 flex flex-col items-center pointer-events-auto">
-           {/* Texture Overlay for Body */}
            <div className="absolute inset-0 opacity-10 pointer-events-none rounded-b-[40px] rounded-t-[10px] bg-[url('https://www.transparenttextures.com/patterns/concrete-wall.png')] mix-blend-multiply"></div>
 
           <div className="relative w-[180px] h-[180px] bg-[#1a1a1a] rounded-full shadow-2xl border-[6px] border-[#2a2a2a] flex items-center justify-center mt-4 z-10">
             <div className="w-[140px] h-[140px] bg-black rounded-full border-[8px] border-[#333] relative overflow-hidden shadow-inner" />
             <div className="absolute -bottom-2 w-6 h-6 bg-gray-800 rounded-full border-2 border-gray-600" />
-            {/* Lens Glare */}
             <div className="absolute top-4 right-6 w-6 h-3 bg-white opacity-10 rotate-[-45deg] rounded-full blur-sm pointer-events-none"></div>
           </div>
           <div className="absolute bottom-4 right-8 font-sans font-bold text-gray-400 tracking-widest text-xs uppercase z-10 drop-shadow-sm">
@@ -331,7 +316,6 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
           className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200 pointer-events-auto"
           onClick={() => isFolded && setIsFolded(false)}
         >
-          {/* Texture Overlay for Top */}
            <div className="absolute inset-0 opacity-10 pointer-events-none rounded-t-[20px] bg-[url('https://www.transparenttextures.com/patterns/concrete-wall.png')] mix-blend-multiply"></div>
 
           {/* Tint selector */}
@@ -363,7 +347,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
             </div>
           </div>
 
-          {/* Realistic Flash Unit */}
+          {/* Flash Unit */}
           <div
             onClick={(e) => {
               e.stopPropagation();
@@ -373,22 +357,12 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
               isFolded ? "opacity-20 pointer-events-none" : "opacity-100"
             }`}
           >
-            {/* Flash Tube / Glass Texture */}
             <div className="absolute inset-1 bg-gray-800 border border-gray-700 rounded-[2px] overflow-hidden">
-               {/* Fresnel Lens Pattern */}
                <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(90deg,transparent,transparent_2px,rgba(255,255,255,0.1)_3px)] pointer-events-none z-10"></div>
-               
-               {/* Off State: Dark Glass */}
                <div className={`absolute inset-0 bg-gradient-to-br from-gray-700 to-black transition-opacity duration-300 ${isFlashEnabled ? 'opacity-0' : 'opacity-100'}`}></div>
-
-               {/* On State: Glowing Xenon Tube */}
                <div className={`absolute inset-0 bg-[#fffec8] transition-opacity duration-100 ${isFlashEnabled ? 'opacity-100 shadow-[0_0_20px_rgba(255,255,200,0.9)]' : 'opacity-0'}`}></div>
-               
-               {/* Specular Highlight on Glass */}
                <div className="absolute top-0 left-0 w-full h-[40%] bg-gradient-to-b from-white/20 to-transparent pointer-events-none z-20"></div>
             </div>
-
-            {/* Icon Overlay (Subtle) */}
             <Zap
               className={`relative z-30 w-4 h-4 transition-all duration-300 ${
                 isFlashEnabled

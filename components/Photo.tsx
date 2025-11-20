@@ -23,10 +23,10 @@ export const Photo: React.FC<PhotoProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Helper to stop propagation so clicking photo doesn't trigger background deselect
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Critical: Prevent App from deselecting
-    e.preventDefault();
+  // Uses Pointer Events to support both Mouse and Touch
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation(); 
+    // e.preventDefault(); // Allowing default can be useful for focus, but touch-action: none handles scroll blocking
     onSelect();
     setInteractionMode('drag');
     
@@ -36,13 +36,13 @@ export const Photo: React.FC<PhotoProps> = ({
     });
   };
 
-  const handleRotateStart = (e: React.MouseEvent) => {
+  const handleRotateStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setInteractionMode('rotate');
   };
 
-  const handleResizeStart = (e: React.MouseEvent) => {
+  const handleResizeStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setInteractionMode('resize');
@@ -50,61 +50,50 @@ export const Photo: React.FC<PhotoProps> = ({
 
   const savePhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Create a temporary canvas to merge the frame and photo
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Dimensions of the photo component
-    const width = 600; // Higher resolution for download
-    const height = 725; // Aspect ratio 240/290
+    const width = 600; 
+    const height = 725; 
     
     canvas.width = width;
     canvas.height = height;
 
-    // Draw background (Frame)
     ctx.fillStyle = data.borderColor || '#ffffff';
     ctx.fillRect(0, 0, width, height);
     
-    // Draw Photo
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = data.url;
     img.onload = () => {
-      // Calculate photo area (approx 90% width, top padding)
-      // In CSS: w-full p-3. So photo is width - 24px (10%).
-      const padding = width * 0.05; // 5% padding
+      const padding = width * 0.05; 
       const photoSize = width - (padding * 2);
       const topPadding = padding;
       
-      // Draw the photo
       ctx.drawImage(img, padding, topPadding, photoSize, photoSize);
 
-      // Add inner shadow overlay simulation (optional)
       const gradient = ctx.createLinearGradient(0, 0, width, height);
       gradient.addColorStop(0, "rgba(0,0,0,0.05)");
       gradient.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = gradient;
       ctx.fillRect(padding, topPadding, photoSize, photoSize);
 
-      // Draw Text
       const date = new Date(data.timestamp);
       const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'});
       
-      ctx.font = '30px "Permanent Marker", cursive'; // Need to ensure font is loaded, fallback to cursive
-      ctx.fillStyle = '#4b5563'; // gray-600
+      ctx.font = '30px "Permanent Marker", cursive'; 
+      ctx.fillStyle = '#4b5563'; 
       ctx.textAlign = 'center';
       
-      // Rotate text slightly like in CSS
       ctx.save();
       ctx.translate(width / 2, height - 50);
       ctx.rotate(-1 * Math.PI / 180);
       ctx.fillText(timeStr, 0, 0);
       ctx.restore();
 
-      // Trigger Download
       const link = document.createElement('a');
-      link.download = `retrosnap-${data.id}.jpg`;
+      link.download = `pulsesnap-${data.id}.jpg`;
       link.href = canvas.toDataURL('image/jpeg', 0.9);
       link.click();
     };
@@ -113,14 +102,16 @@ export const Photo: React.FC<PhotoProps> = ({
   useEffect(() => {
     if (interactionMode === 'none') return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
+      // Prevent default actions like scrolling if necessary, though touch-action: none handles most
+      e.preventDefault();
+
       if (interactionMode === 'drag') {
         const newX = e.clientX - dragOffset.x;
         const newY = e.clientY - dragOffset.y;
         onUpdatePosition(data.id, newX, newY);
       } 
       else if (interactionMode === 'rotate' && containerRef.current) {
-        // Calculate angle between center of photo and mouse
         const rect = containerRef.current.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -128,13 +119,10 @@ export const Photo: React.FC<PhotoProps> = ({
         const deltaX = e.clientX - centerX;
         const deltaY = e.clientY - centerY;
         
-        // atan2 returns radians, convert to degrees
-        // Add 90 degrees because standard 0 is 3 o'clock, but we want 12 o'clock to be "up"
         const angleDeg = Math.atan2(deltaY, deltaX) * (180 / Math.PI) + 90;
         onUpdateTransform(data.id, angleDeg, data.scale);
       }
       else if (interactionMode === 'resize' && containerRef.current) {
-         // Calculate distance from center to mouse to determine scale
          const rect = containerRef.current.getBoundingClientRect();
          const centerX = rect.left + rect.width / 2;
          const centerY = rect.top + rect.height / 2;
@@ -142,27 +130,23 @@ export const Photo: React.FC<PhotoProps> = ({
          const deltaX = e.clientX - centerX;
          const deltaY = e.clientY - centerY;
          
-         // Distance from center
          const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-         
-         // Base size diagonal is approx sqrt(240^2 + 290^2) / 2 ~= 190
-         // Let's say 150px distance is scale 1
          const newScale = Math.max(0.3, Math.min(3, dist / 150));
          
          onUpdateTransform(data.id, data.rotation, newScale);
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setInteractionMode('none');
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [interactionMode, dragOffset, data, onUpdatePosition, onUpdateTransform]);
 
@@ -177,11 +161,11 @@ export const Photo: React.FC<PhotoProps> = ({
         height: '290px',
         transform: `rotate(${data.rotation}deg) scale(${data.scale})`,
         transformOrigin: 'center center',
-        zIndex: isSelected ? 50 : 1, // Bring to front when selected
+        zIndex: isSelected ? 50 : 1, 
+        touchAction: 'none', // CRITICAL: Disables browser touch gestures (scrolling) on this element
       }}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
     >
-       {/* Frame content */}
        <div 
          className="w-full h-full p-3 pb-10 shadow-xl transition-shadow"
          style={{ 
@@ -210,18 +194,17 @@ export const Photo: React.FC<PhotoProps> = ({
          </div>
        </div>
 
-       {/* Selection UI Overlays */}
        {isSelected && (
          <>
-            {/* Border Highlight */}
             <div className="absolute -inset-2 border-2 border-blue-400/40 rounded-lg pointer-events-none"></div>
             
-            {/* Elegant Action Pill (Top Center) */}
             <div className="absolute -top-12 right-0 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-sm border border-gray-200/60 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
                <button 
                   onClick={savePhoto}
                   className="p-1.5 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-full transition-colors"
                   title="Save Photo"
+                  // Touch friendly buttons
+                  style={{ touchAction: 'manipulation' }}
                >
                   <Download size={16} />
                </button>
@@ -230,26 +213,29 @@ export const Photo: React.FC<PhotoProps> = ({
                   onClick={(e) => { e.stopPropagation(); onDelete(data.id); }}
                   className="p-1.5 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-full transition-colors"
                   title="Delete Photo"
+                  style={{ touchAction: 'manipulation' }}
                >
                   <Trash2 size={16} />
                </button>
             </div>
 
-            {/* Rotate Handle (Top Center) */}
+            {/* Rotate Handle */}
             <div 
               className="absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 bg-white text-gray-700 rounded-full shadow-sm border border-gray-200 flex items-center justify-center cursor-move z-20 hover:bg-blue-50 transition-colors"
-              onMouseDown={handleRotateStart}
+              onPointerDown={handleRotateStart}
               title="Rotate"
+              style={{ touchAction: 'none' }}
             >
               <div className="h-4 w-[1px] bg-blue-400 absolute -bottom-4 left-1/2 pointer-events-none opacity-50"></div>
               <RotateCw size={14} />
             </div>
 
-            {/* Resize Handle (Bottom Right) */}
+            {/* Resize Handle */}
             <div 
               className="absolute -bottom-3 -right-3 w-7 h-7 bg-white text-gray-700 rounded-full shadow-sm border border-gray-200 flex items-center justify-center cursor-nwse-resize z-20 hover:bg-blue-50 transition-colors"
-              onMouseDown={handleResizeStart}
+              onPointerDown={handleResizeStart}
               title="Resize"
+              style={{ touchAction: 'none' }}
             >
               <Maximize2 size={12} />
             </div>

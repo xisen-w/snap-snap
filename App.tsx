@@ -23,7 +23,6 @@ export default function App() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   
-  // When the camera takes a picture
   const handleCapture = (imageUrl: string) => {
     const randomColor = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
     
@@ -34,25 +33,21 @@ export default function App() {
       borderColor: randomColor
     });
 
-    // If user doesn't grab it, reset printing state after animation but keep photo in slot
     setTimeout(() => {
        setIsPrinting(false); 
-    }, 1500); // Matches CSS animation duration
+    }, 1500); 
   };
 
-  // Logic to move photo from Camera slot to the Wall
-  const handleDragFromCamera = (e: React.MouseEvent) => {
+  // Accepts PointerEvent now
+  const handleDragFromCamera = (e: React.PointerEvent) => {
     if (!currentPrint) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
     
     const newId = uuidv4();
-    // Random slight rotation for realism
     const randomRotation = (Math.random() * 10) - 5; 
 
-    // Position close to where the mouse picked it up relative to the viewport
-    // Adjust offsets to center the card on cursor (Card is ~240px wide)
     const initialX = startX - 120;
     const initialY = startY - 50; 
 
@@ -68,11 +63,9 @@ export default function App() {
       borderColor: currentPrint.borderColor
     };
 
-    // Add to wall
     setPhotos((prev) => [...prev, newPhoto]);
     setSelectedPhotoId(newId);
     
-    // Clear from camera
     setCurrentPrint(null);
     setIsPrinting(false);
   };
@@ -92,7 +85,8 @@ export default function App() {
   return (
     <div 
       className="w-screen h-screen overflow-hidden relative bg-slate-200"
-      onMouseDown={() => setSelectedPhotoId(null)} // Deselect when clicking background
+      onMouseDown={() => setSelectedPhotoId(null)} 
+      onTouchStart={() => setSelectedPhotoId(null)} // Deselect on touch background
     >
       {/* Instructional Text */}
       <div className="absolute top-10 left-0 w-full text-center pointer-events-none z-0 opacity-50">
@@ -101,7 +95,7 @@ export default function App() {
          <p className="font-sans text-slate-400 text-xs mt-1">Direct Flash • Cool Tones • Instant Vibes</p>
       </div>
 
-      {/* The Photo Wall Area (Full Screen) */}
+      {/* The Photo Wall Area */}
       <div className="w-full h-full relative z-0">
         {photos.map(photo => (
           <Photo 
@@ -116,8 +110,8 @@ export default function App() {
         ))}
       </div>
 
-      {/* The Camera (Fixed Bottom Left) */}
-      <div className="fixed bottom-0 left-10 z-50 mb-[-20px]">
+      {/* The Camera - Center on mobile, Left on Desktop */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-10 z-50 mb-[-20px]">
         <PolaroidCamera 
           onCapture={handleCapture}
           isPrinting={isPrinting}
@@ -127,8 +121,7 @@ export default function App() {
         />
       </div>
 
-      {/* Footer/Credits */}
-      <div className="fixed bottom-2 right-4 text-xs text-gray-400 font-sans pointer-events-none">
+      <div className="fixed bottom-2 right-4 text-xs text-gray-400 font-sans pointer-events-none hidden md:block">
         PulseSnap Instant Camera
       </div>
     </div>
