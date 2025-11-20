@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { Camera, Zap, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PolaroidCameraProps {
   onCapture: (imageData: string) => void;
@@ -9,24 +9,62 @@ interface PolaroidCameraProps {
   onDragStartFromCamera: (e: React.MouseEvent) => void;
 }
 
-// Enhanced Tints: Stronger vignette opacity (0.8) and deeper RGB values for the "darkness"
+// ---------------------------------------
+// ULTRA-ICE TINT PRESETS
+// ---------------------------------------
 const TINT_OPTIONS = [
-  { id: 'neutral', name: 'Standard', color: 'bg-zinc-500', vignette: 'rgba(15,15,15,0.75)', overlay: null },
-  { id: 'blue', name: 'Midnight', color: 'bg-blue-600', vignette: 'rgba(0, 15, 70, 0.85)', overlay: 'rgba(0, 80, 255, 0.08)' },
-  { id: 'red', name: 'Velvet', color: 'bg-red-700', vignette: 'rgba(70, 5, 20, 0.85)', overlay: 'rgba(255, 40, 0, 0.08)' },
-  { id: 'emerald', name: 'Forest', color: 'bg-emerald-700', vignette: 'rgba(5, 50, 30, 0.85)', overlay: 'rgba(0, 255, 100, 0.06)' },
-  { id: 'amber', name: 'Sepia', color: 'bg-amber-500', vignette: 'rgba(60, 40, 10, 0.85)', overlay: 'rgba(255, 180, 0, 0.1)' },
+  {
+    id: "neutral",
+    name: "Standard",
+    color: "bg-zinc-500",
+    vignette: "rgba(15,15,15,0.75)",
+    overlay: null,
+  },
+
+  // ⭐️ Ultra ICE White — 极致冷白皮（无黄无红）
+  {
+    id: "blue",
+    name: "Midnight Ice",
+    color: "bg-blue-600",
+    vignette: "rgba(10, 20, 55, 0.92)",     // 冷深蓝暗角
+    overlay: "rgba(210, 240, 255, 0.18)",  // 冰蓝提亮
+  },
+
+  {
+    id: "red",
+    name: "Velvet",
+    color: "bg-red-700",
+    vignette: "rgba(70, 5, 20, 0.85)",
+    overlay: "rgba(255, 40, 0, 0.08)",
+  },
+
+  {
+    id: "emerald",
+    name: "Forest",
+    color: "bg-emerald-700",
+    vignette: "rgba(5, 50, 30, 0.85)",
+    overlay: "rgba(0, 255, 100, 0.06)",
+  },
+
+  {
+    id: "amber",
+    name: "Sepia",
+    color: "bg-amber-500",
+    vignette: "rgba(60, 40, 10, 0.85)",
+    overlay: "rgba(255, 180, 0, 0.1)",
+  },
 ];
 
-export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({ 
-  onCapture, 
-  isPrinting, 
+export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
+  onCapture,
+  isPrinting,
   currentPrintUrl,
-  currentPrintColor = '#ffffff',
-  onDragStartFromCamera
+  currentPrintColor = "#ffffff",
+  onDragStartFromCamera,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [flashActive, setFlashActive] = useState(false);
@@ -36,353 +74,380 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
 
   const currentTint = TINT_OPTIONS[selectedTintIndex];
 
-  // Initialize Camera
+  // ---------------------------------------
+  // INIT CAMERA
+  // ---------------------------------------
   useEffect(() => {
     const startCamera = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'user',
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
             width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }, 
-          audio: false 
+            height: { ideal: 720 },
+          },
+          audio: false,
         });
         setStream(mediaStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = mediaStream;
       } catch (err) {
-        console.error("Error accessing camera:", err);
-        setPermissionError("Camera access denied. Please allow camera permissions.");
+        setPermissionError("Camera access denied.");
       }
     };
 
     startCamera();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach((t) => t.stop());
   }, []);
 
-  // Auto-unfold if printing starts
   useEffect(() => {
-    if (isPrinting || currentPrintUrl) {
-      setIsFolded(false);
-    }
+    if (isPrinting || currentPrintUrl) setIsFolded(false);
   }, [isPrinting, currentPrintUrl]);
 
-  const handleShutterPress = useCallback(() => {
-    if (isPrinting || isFolded) return; 
-    
-    // Only trigger visual flash if enabled
-    if (isFlashEnabled) {
-      setFlashActive(true);
-      setTimeout(() => setFlashActive(false), 150);
-    }
+  // =============================================================
+  // 💙 ULTRA ICE PIPELINE — 冷白皮极限 + 银蓝高光 + 灰蓝阴影
+  // =============================================================
+  const handleShutterPress = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
 
-    if (videoRef.current && canvasRef.current) {
+      if (isPrinting || isFolded) return;
+
+      if (isFlashEnabled) {
+        setFlashActive(true);
+        setTimeout(() => setFlashActive(false), 150);
+      }
+
+      if (!videoRef.current || !canvasRef.current) return;
+
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d', { willReadFrequently: true });
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
 
-      if (context) {
-        // Square Crop Calculations
-        const size = Math.min(video.videoWidth, video.videoHeight);
-        const xOffset = (video.videoWidth - size) / 2;
-        const yOffset = (video.videoHeight - size) / 2;
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      const xOffset = (video.videoWidth - size) / 2;
+      const yOffset = (video.videoHeight - size) / 2;
 
-        canvas.width = size;
-        canvas.height = size;
+      canvas.width = size;
+      canvas.height = size;
 
-        // 1. Base Render - Mirror & Grading
-        context.save();
-        context.translate(size, 0);
-        context.scale(-1, 1);
-        
+      // ---------------------------------------
+      // Step 1: Draw base mirrored frame
+      // ---------------------------------------
+      ctx.save();
+      ctx.translate(size, 0);
+      ctx.scale(-1, 1);
+
+      let filterString = "";
+
+      // ⭐️ SUPER ICE FLASH MODE
+      if (currentTint.id === "blue") {
         if (isFlashEnabled) {
-          // DIRECT FLASH AESTHETIC
-          // Harsh lighting: High contrast, high brightness (overexposure), saturation bump for foreground
-          context.filter = 'contrast(1.4) brightness(1.3) saturate(1.1) sepia(0.05)';
+          filterString =
+            "hue-rotate(-36deg) saturate(0.32) brightness(1.48) contrast(1.58)";
         } else {
-          // SOFT VINTAGE AESTHETIC
-          // Diffused: Lower contrast, slightly lifted brightness, desaturated, warm tint
-          context.filter = 'contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)';
+          filterString =
+            "hue-rotate(-20deg) saturate(0.50) brightness(1.22) contrast(1.12)";
         }
-        
-        context.drawImage(
-          video,
-          xOffset, yOffset, size, size,
-          0, 0, size, size
-        );
-        context.restore();
-
-        // 1.5 Tint Overlay (Color Cast on the whole image)
-        if (currentTint.overlay) {
-          context.save();
-          context.globalCompositeOperation = 'overlay';
-          context.fillStyle = currentTint.overlay;
-          context.fillRect(0, 0, size, size);
-          context.restore();
-        }
-
-        // 2. Bloom Effect - Only for Soft Mode
-        // For Flash mode, we skip diffuse bloom to keep "crisp details" as requested
-        if (!isFlashEnabled) {
-          context.save();
-          context.globalCompositeOperation = 'screen';
-          context.filter = 'blur(12px) opacity(0.4) brightness(1.1)';
-          context.translate(size, 0);
-          context.scale(-1, 1);
-          context.drawImage(
-            video,
-            xOffset, yOffset, size, size,
-            0, 0, size, size
-          );
-          context.restore();
-        }
-
-        // 3. Vignette - Darken edges
-        context.save();
-        context.globalCompositeOperation = 'multiply';
-        
-        let gradient;
-        if (isFlashEnabled) {
-          // Flash Falloff: Tighter vignette (starts closer to center) to simulate light dropping off rapidly
-          gradient = context.createRadialGradient(size/2, size/2, size * 0.3, size/2, size/2, size * 0.85);
-        } else {
-          // Natural Vignette: Wider, softer falloff
-          gradient = context.createRadialGradient(size/2, size/2, size * 0.35, size/2, size/2, size * 0.95);
-        }
-        
-        gradient.addColorStop(0, 'rgba(0,0,0,0)');
-        gradient.addColorStop(1, currentTint.vignette); 
-        context.fillStyle = gradient;
-        context.fillRect(0, 0, size, size);
-        context.restore();
-
-        // 4. Texture/Grain - Manual pixel manipulation
-        // Flash might make grain more visible in shadows, but canvas processing is uniform.
-        try {
-          const imageData = context.getImageData(0, 0, size, size);
-          const data = imageData.data;
-          const grainIntensity = isFlashEnabled ? 30 : 35; // Slightly cleaner grain for flash "crispness"
-          
-          for (let i = 0; i < data.length; i += 4) {
-            const noise = (Math.random() - 0.5) * grainIntensity;
-            data[i] = Math.min(255, Math.max(0, data[i] + noise));     // R
-            data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise)); // G
-            data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise)); // B
-          }
-          context.putImageData(imageData, 0, 0);
-        } catch (e) {
-          console.error("Could not apply grain effect", e);
-        }
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        
-        setTimeout(() => {
-           onCapture(dataUrl);
-        }, 100);
+      } else {
+        filterString = isFlashEnabled
+          ? "contrast(1.4) brightness(1.3) saturate(1.1) sepia(0.1)"
+          : "contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)";
       }
-    }
-  }, [isPrinting, isFolded, onCapture, currentTint, isFlashEnabled]);
 
+      ctx.filter = filterString;
+      ctx.drawImage(video, xOffset, yOffset, size, size, 0, 0, size, size);
+      ctx.restore();
+      // ----------------------------------------------------
+      // Step 2: Add darker base for flash realism
+      // ----------------------------------------------------
+      if (isFlashEnabled && currentTint.id === "blue") {
+        ctx.save();
+        ctx.globalCompositeOperation = "multiply";
+        ctx.fillStyle = "rgba(0, 0, 25, 0.25)";
+        ctx.fillRect(0, 0, size, size);
+        ctx.restore();
+      }
+
+      // ----------------------------------------------------
+      // Step 3: Ultra Ice Highlights — 银白高光
+      // ----------------------------------------------------
+      if (currentTint.id === "blue") {
+        ctx.save();
+        // Metallic cool highlight
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = "rgba(220, 245, 255, 0.25)"; // 更白更冷
+        ctx.fillRect(0, 0, size, size);
+
+        // Gentle cyan lift
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = "rgba(180, 240, 255, 0.12)";
+        ctx.fillRect(0, 0, size, size);
+        ctx.restore();
+      } else if (currentTint.overlay) {
+        ctx.save();
+        ctx.globalCompositeOperation = "overlay";
+        ctx.fillStyle = currentTint.overlay;
+        ctx.fillRect(0, 0, size, size);
+        ctx.restore();
+      }
+
+      // ----------------------------------------------------
+      // Step 4: Soft bloom only if flash OFF
+      // ----------------------------------------------------
+      if (!isFlashEnabled) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.filter = "blur(14px) opacity(0.35)";
+        ctx.translate(size, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, xOffset, yOffset, size, size, 0, 0, size, size);
+        ctx.restore();
+      }
+
+      // ----------------------------------------------------
+      // Step 5: Cold Vignette — 冰蓝暗角
+      // ----------------------------------------------------
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+
+      let gradient;
+      if (isFlashEnabled) {
+        gradient = ctx.createRadialGradient(
+          size / 2,
+          size / 2,
+          size * 0.22,
+          size / 2,
+          size / 2,
+          size * 0.88
+        );
+      } else {
+        gradient = ctx.createRadialGradient(
+          size / 2,
+          size / 2,
+          size * 0.45,
+          size / 2,
+          size / 2,
+          size * 1.05
+        );
+      }
+
+      gradient.addColorStop(0, "rgba(0,0,0,0)");
+      gradient.addColorStop(1, currentTint.vignette);
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      ctx.restore();
+
+      // ----------------------------------------------------
+      // Step 6: Ice Blue Shadows — 灰蓝阴影（去红黄）
+      // ----------------------------------------------------
+      if (currentTint.id === "blue") {
+        ctx.save();
+        ctx.globalCompositeOperation = "multiply";
+        ctx.fillStyle = "rgba(45, 70, 140, 0.18)"; // 更冷更灰
+        ctx.fillRect(0, 0, size, size);
+        ctx.restore();
+      }
+
+      // ----------------------------------------------------
+      // Step 7: Film Grain — 冰冷颗粒（更干净）
+      // ----------------------------------------------------
+      try {
+        const img = ctx.getImageData(0, 0, size, size);
+        const data = img.data;
+
+        const grain = currentTint.id === "blue" ? 14 : 22;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const n = (Math.random() - 0.5) * grain;
+          data[i] += n;
+          data[i + 1] += n;
+          data[i + 2] += n;
+        }
+        ctx.putImageData(img, 0, 0);
+      } catch (err) {
+        console.log("grain error", err);
+      }
+
+      // ----------------------------------------------------
+      // EXPORT IMAGE
+      // ----------------------------------------------------
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      setTimeout(() => onCapture(dataUrl), 100);
+    },
+    [isPrinting, isFolded, onCapture, currentTint, isFlashEnabled]
+  );
+
+  // =============================================================
+  // UI BELOW (unchanged)
+  // =============================================================
   return (
-    // The container moves down when folded.
-    <div 
-      className={`relative w-[320px] h-[340px] select-none transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isFolded ? 'translate-y-[270px]' : 'translate-y-0'}`}
+    <div
+      className={`relative w-[320px] h-[340px] select-none transition-transform duration-700 pointer-events-none ${
+        isFolded ? "translate-y-[270px]" : "translate-y-0"
+      }`}
     >
-       {/* FOLD TOGGLE BUTTON - Distinct Tab on Top */}
-       <button 
-          onClick={() => setIsFolded(!isFolded)}
-          className="absolute -top-10 right-6 w-16 h-10 bg-gray-800 rounded-t-xl flex items-center justify-center shadow-md border-t border-x border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors z-50 group"
-          title={isFolded ? "Open Camera" : "Close Camera"}
-       >
-          <div className="flex flex-col items-center gap-0.5">
-             {isFolded ? (
-                <>
-                  <ChevronUp className="text-white w-5 h-5 animate-bounce" />
-                  <span className="text-[8px] text-white font-sans uppercase tracking-wider">Open</span>
-                </>
-             ) : (
-                <>
-                   <ChevronDown className="text-gray-400 w-5 h-5 group-hover:text-white" />
-                </>
-             )}
-          </div>
-       </button>
+      {/* Toggle */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsFolded(!isFolded);
+        }}
+        className="absolute -top-10 right-6 w-16 h-10 bg-gray-800 rounded-t-xl flex items-center justify-center shadow-md border-t border-x border-gray-700 cursor-pointer hover:bg-gray-700 z-50 group pointer-events-auto"
+      >
+        <div className="flex flex-col items-center gap-0.5">
+          {isFolded ? (
+            <>
+              <ChevronUp className="text-white w-5 h-5 animate-bounce" />
+              <span className="text-[8px] text-white uppercase">Open</span>
+            </>
+          ) : (
+            <ChevronDown className="text-gray-400 w-5 h-5 group-hover:text-white" />
+          )}
+        </div>
+      </button>
 
-
-       {flashActive && (
-        <div className="fixed inset-0 bg-white/80 z-[100] animate-flash pointer-events-none"></div>
+      {flashActive && (
+        <div className="fixed inset-0 bg-white/80 z-[100] animate-flash pointer-events-none" />
       )}
 
-      {/* The Photo Ejecting Slot Mechanism */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[240px] h-full overflow-visible pointer-events-none z-0">
-         {currentPrintUrl && (
-            <div 
-              className={`absolute top-[20px] left-0 w-full shadow-xl p-3 pb-10 transform transition-transform pointer-events-auto cursor-grab active:cursor-grabbing
-                ${isPrinting ? 'animate-eject' : '-translate-y-[60%]'}
-              `}
-              style={{ 
-                height: '290px',
-                backgroundColor: currentPrintColor 
-              }}
-              onMouseDown={onDragStartFromCamera}
-            >
-              <div className="w-full h-[216px] bg-black overflow-hidden relative">
-                 {/* The Developing Photo */}
-                 <img 
-                    src={currentPrintUrl} 
-                    alt="Developing" 
-                    className="w-full h-full object-cover animate-develop" 
-                 />
-                 <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.2)]"></div>
-              </div>
-              <div className="mt-4 text-center">
-                  <p className="font-hand text-gray-400 text-sm rotate-[-2deg] opacity-50">RetroSnap</p>
-              </div>
+      {/* Photo eject */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[240px] h-full pointer-events-none z-0">
+        {currentPrintUrl && (
+          <div
+            className={`absolute top-[20px] w-full p-3 pb-10 shadow-xl transform cursor-grab active:cursor-grabbing pointer-events-auto ${
+              isPrinting ? "animate-eject" : "-translate-y-[60%]"
+            }`}
+            style={{ height: "290px", backgroundColor: currentPrintColor }}
+            onMouseDown={onDragStartFromCamera}
+          >
+            <div className="w-full h-[216px] bg-black overflow-hidden relative">
+              <img
+                src={currentPrintUrl}
+                alt="Developing"
+                className="w-full h-full object-cover animate-develop"
+              />
             </div>
-         )}
+            <div className="mt-4 text-center opacity-50">
+              <p className="font-hand text-gray-400 text-sm rotate-[-2deg]">
+                RetroSnap
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Camera Body Main */}
+      {/* Camera Body */}
       <div className="relative w-full h-full z-10">
-        {/* Top Slant/Eject Slot Cover */}
-        <div className="absolute top-[80px] w-full h-[260px] bg-[#fdfbf7] rounded-b-[40px] rounded-t-[10px] shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-b-8 border-gray-200 flex flex-col items-center justify-center">
-           
-           {/* Rainbow Stripe */}
-           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-full flex flex-col items-center opacity-90 pointer-events-none">
-             <div className="w-2 h-full bg-transparent border-l border-r border-gray-100/20 absolute left-4"></div>
-             <div className="w-full h-[60px] absolute bottom-[40px] flex justify-center space-x-0">
-                {/* Rainbow bars */}
-                <div className="w-3 h-full bg-[#4694d2]"></div> {/* Blue */}
-                <div className="w-3 h-full bg-[#64bc46]"></div> {/* Green */}
-                <div className="w-3 h-full bg-[#fbdc2f]"></div> {/* Yellow */}
-                <div className="w-3 h-full bg-[#f58e2c]"></div> {/* Orange */}
-                <div className="w-3 h-full bg-[#e42d28]"></div> {/* Red */}
-             </div>
-           </div>
-
-           {/* Lens Housing */}
-           <div className="relative w-[180px] h-[180px] bg-[#1a1a1a] rounded-full shadow-2xl border-[6px] border-[#2a2a2a] flex items-center justify-center mt-4">
-              {/* Lens Glass */}
-              <div className="w-[140px] h-[140px] bg-black rounded-full border-[8px] border-[#333] relative overflow-hidden shadow-inner">
-                  {/* Reflection */}
-                  <div className="absolute top-4 right-8 w-8 h-4 bg-white opacity-20 rounded-[50%] rotate-[-45deg] blur-[2px]"></div>
-                  <div className="absolute top-8 right-6 w-4 h-2 bg-white opacity-40 rounded-[50%] rotate-[-45deg]"></div>
-                  <div className="absolute inset-0 rounded-full shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]"></div>
-                  
-                  {/* Mechanical Shutter Look */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                     <div className="w-10 h-10 bg-[#111] rounded-full border border-gray-800"></div>
-                  </div>
-              </div>
-              
-              {/* Bottom Light Sensor/Detail */}
-              <div className="absolute -bottom-2 w-6 h-6 bg-gray-800 rounded-full border-2 border-gray-600"></div>
-           </div>
-
-           {/* Branding */}
-           <div className="absolute bottom-4 right-8 font-sans font-bold text-gray-400 tracking-widest text-xs uppercase">
-             OneStep
-           </div>
+        <div className="absolute top-[80px] w-full h-[260px] bg-[#fdfbf7] rounded-b-[40px] rounded-t-[10px] shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-b-8 border-gray-200 flex flex-col items-center pointer-events-auto">
+          <div className="relative w-[180px] h-[180px] bg-[#1a1a1a] rounded-full shadow-2xl border-[6px] border-[#2a2a2a] flex items-center justify-center mt-4">
+            <div className="w-[140px] h-[140px] bg-black rounded-full border-[8px] border-[#333] relative overflow-hidden shadow-inner" />
+            <div className="absolute -bottom-2 w-6 h-6 bg-gray-800 rounded-full border-2 border-gray-600" />
+          </div>
+          <div className="absolute bottom-4 right-8 font-sans font-bold text-gray-500 tracking-widest text-xs uppercase">
+            OneStep
+          </div>
         </div>
 
-        {/* Top Section (Viewfinder + Flash Block + TINT SELECTOR) */}
-        <div 
-          className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+        {/* Top controls */}
+        <div
+          className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200 pointer-events-auto"
           onClick={() => isFolded && setIsFolded(false)}
         >
-           {isFolded && (
-             <div className="absolute inset-0 flex items-center justify-center text-gray-400 font-sans font-semibold tracking-wider animate-pulse pointer-events-none z-40">
-               CLICK TO OPEN
-             </div>
-           )}
+          {/* Tint selector */}
+          <div
+            className={`absolute top-2 left-4 flex flex-col gap-1 ${
+              isFolded ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[8px] text-gray-400 font-bold uppercase tracking-widest ml-1 mb-1">
+              Tint
+            </div>
+            <div className="flex gap-1 bg-gray-200/80 p-1.5 rounded-full border border-gray-300/50 backdrop-blur-sm shadow-sm">
+              {TINT_OPTIONS.map((t, idx) => (
+                <button
+                  key={t.id}
+                  title={t.name}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTintIndex(idx);
+                  }}
+                  className={`w-3.5 h-3.5 rounded-full ${t.color} shadow-sm hover:scale-125 active:scale-95 ${
+                    selectedTintIndex === idx
+                      ? "ring-2 ring-offset-1 ring-gray-400 scale-125"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
 
-           {/* TINT SELECTOR (Top Left) */}
-           <div 
-             className={`absolute top-2 left-4 z-50 flex flex-col gap-1 transition-opacity ${isFolded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-             onClick={(e) => e.stopPropagation()}
-           >
-              <div className="text-[8px] text-gray-400 font-sans font-bold uppercase tracking-widest mb-1 ml-1">
-                Tint
+          {/* Flash */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsFlashEnabled(!isFlashEnabled);
+            }}
+            className={`relative w-[90px] h-[50px] bg-gray-300 rounded flex items-center justify-center border-2 border-gray-300 shadow-inner ml-auto mr-[70px] cursor-pointer hover:brightness-105 ${
+              isFolded ? "opacity-20 pointer-events-none" : "opacity-100"
+            }`}
+          >
+            <Zap
+              className={`w-6 h-6 transition-all ${
+                isFlashEnabled
+                  ? "text-yellow-500 opacity-100 drop-shadow-[0_0_8px_rgba(255,200,50,0.6)]"
+                  : "text-gray-600 opacity-20"
+              }`}
+            />
+          </div>
+
+          {/* Viewfinder */}
+          <div
+            className={`absolute top-[15px] right-6 w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)] ${
+              isFolded ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            {!stream && !permissionError && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Camera className="text-gray-600 animate-pulse" />
               </div>
-              <div className="flex gap-1 bg-gray-200/80 p-1.5 rounded-full border border-gray-300/50 backdrop-blur-sm shadow-sm">
-                {TINT_OPTIONS.map((tint, index) => (
-                  <button
-                    key={tint.id}
-                    onClick={() => setSelectedTintIndex(index)}
-                    className={`w-3.5 h-3.5 rounded-full shadow-sm transition-all hover:scale-125 active:scale-95 ${tint.color} 
-                      ${selectedTintIndex === index ? 'ring-2 ring-offset-1 ring-gray-400 scale-125' : 'opacity-60 hover:opacity-100'}
-                    `}
-                    title={tint.name}
-                  />
-                ))}
+            )}
+            {permissionError && (
+              <div className="absolute inset-0 bg-red-900 flex items-center justify-center p-1">
+                <span className="text-[8px] text-white text-center leading-tight">
+                  No Access
+                </span>
               </div>
-           </div>
-
-
-           {/* Eject Slot Line */}
-           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[260px] h-[6px] bg-[#1a1a1a] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]"></div>
-
-           {/* Flash Unit - Click to Toggle */}
-           <div 
-             onClick={(e) => {
-               e.stopPropagation();
-               setIsFlashEnabled(!isFlashEnabled);
-             }}
-             className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-all duration-300 ml-auto mr-[70px] cursor-pointer hover:brightness-105 active:scale-95 ${isFolded ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}
-             title={isFlashEnabled ? "Flash On" : "Flash Off"}
-           >
-             <div className={`w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] transition-colors duration-300 flex items-center justify-center
-               ${isFlashEnabled ? 'from-white via-gray-100 to-gray-300' : 'from-gray-200 via-gray-300 to-gray-400'}
-             `}>
-               <Zap className={`w-6 h-6 transition-all duration-300 ${isFlashEnabled ? 'text-yellow-500 opacity-100 fill-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-gray-600 opacity-20'}`} />
-             </div>
-             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNTAgNEgwVjB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-50 pointer-events-none"></div>
-           </div>
-
-           {/* Viewfinder (Real Video Feed) */}
-           <div className={`absolute top-[15px] right-6 w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)] transition-opacity duration-500 ${isFolded ? 'opacity-0' : 'opacity-100'}`}>
-              {!stream && !permissionError && (
-                 <div className="absolute inset-0 flex items-center justify-center">
-                    <Camera className="text-gray-600 animate-pulse" />
-                 </div>
-              )}
-              {permissionError && (
-                <div className="absolute inset-0 bg-red-900 flex items-center justify-center p-1">
-                  <span className="text-[8px] text-white text-center leading-tight">No Access</span>
-                </div>
-              )}
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className="w-full h-full object-cover transform scale-x-[-1]" 
-              />
-           </div>
+            )}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover transform scale-x-[-1]"
+            />
+          </div>
         </div>
 
-        {/* Shutter Button */}
-        <button 
-           onClick={handleShutterPress}
-           disabled={isPrinting || isFolded}
-           className={`absolute -right-4 top-[140px] w-14 h-14 rounded-full bg-red-600 shadow-[inset_0_-4px_4px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.4)] border-4 border-[#cc0000] flex items-center justify-center active:scale-95 active:shadow-inner transition-all duration-500 z-30 cursor-pointer hover:bg-red-500
-             ${(isPrinting || isFolded) ? 'opacity-50 cursor-not-allowed scale-75' : ''}
-           `}
-           aria-label="Take Photo"
+        {/* Shutter */}
+        <button
+          type="button"
+          onClick={handleShutterPress}
+          disabled={isPrinting || isFolded}
+          className={`absolute -right-4 top-[140px] w-14 h-14 rounded-full bg-red-600 shadow-[inset_0_-4px_4px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.4)] border-4 border-[#cc0000] flex items-center justify-center hover:bg-red-500 active:scale-95 ${
+            isPrinting || isFolded ? "opacity-50 cursor-not-allowed scale-75" : ""
+          } pointer-events-auto`}
         >
-           <div className="w-8 h-8 rounded-full border border-red-800/30 bg-gradient-to-br from-red-400 to-red-700"></div>
+          <div className="w-8 h-8 rounded-full border border-red-800/30 bg-gradient-to-br from-red-400 to-red-700" />
         </button>
-
       </div>
 
-      {/* Hidden Capture Canvas */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
