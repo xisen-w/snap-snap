@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PolaroidCamera } from './components/PolaroidCamera';
 import { Photo } from './components/Photo';
@@ -97,9 +96,9 @@ export default function App() {
     >
       {/* Instructional Text */}
       <div className="absolute top-10 left-0 w-full text-center pointer-events-none z-0 opacity-50">
-         <h1 className="font-hand text-4xl text-slate-400 mb-2">Snap & Drag</h1>
-         <p className="font-sans text-slate-500 text-sm">Take a photo, then drag the print onto the desk.</p>
-         <p className="font-sans text-slate-400 text-xs mt-1">Click a photo to rotate or resize it.</p>
+         <h1 className="font-hand text-4xl text-slate-400 mb-2">PulseSnap</h1>
+         <p className="font-sans text-slate-500 text-sm">Snap, Drag, Collect.</p>
+         <p className="font-sans text-slate-400 text-xs mt-1">Direct Flash • Cool Tones • Instant Vibes</p>
       </div>
 
       {/* The Photo Wall Area (Full Screen) */}
@@ -130,7 +129,7 @@ export default function App() {
 
       {/* Footer/Credits */}
       <div className="fixed bottom-2 right-4 text-xs text-gray-400 font-sans pointer-events-none">
-        RetroSnap Instant Camera
+        PulseSnap Instant Camera
       </div>
     </div>
   );
