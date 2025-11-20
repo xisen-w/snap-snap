@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { PhotoData } from '../types';
-import { RotateCw, Maximize2, X } from 'lucide-react';
+import { RotateCw, Maximize2, Trash2, Download } from 'lucide-react';
 
 interface PhotoProps {
   data: PhotoData;
@@ -17,7 +16,7 @@ export const Photo: React.FC<PhotoProps> = ({
   isSelected, 
   onSelect, 
   onUpdatePosition, 
-  onUpdateTransform,
+  onUpdateTransform, 
   onDelete 
 }) => {
   const [interactionMode, setInteractionMode] = useState<'none' | 'drag' | 'rotate' | 'resize'>('none');
@@ -47,6 +46,68 @@ export const Photo: React.FC<PhotoProps> = ({
     e.stopPropagation();
     e.preventDefault();
     setInteractionMode('resize');
+  };
+
+  const savePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Create a temporary canvas to merge the frame and photo
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Dimensions of the photo component
+    const width = 600; // Higher resolution for download
+    const height = 725; // Aspect ratio 240/290
+    
+    canvas.width = width;
+    canvas.height = height;
+
+    // Draw background (Frame)
+    ctx.fillStyle = data.borderColor || '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw Photo
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = data.url;
+    img.onload = () => {
+      // Calculate photo area (approx 90% width, top padding)
+      // In CSS: w-full p-3. So photo is width - 24px (10%).
+      const padding = width * 0.05; // 5% padding
+      const photoSize = width - (padding * 2);
+      const topPadding = padding;
+      
+      // Draw the photo
+      ctx.drawImage(img, padding, topPadding, photoSize, photoSize);
+
+      // Add inner shadow overlay simulation (optional)
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, "rgba(0,0,0,0.05)");
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(padding, topPadding, photoSize, photoSize);
+
+      // Draw Text
+      const date = new Date(data.timestamp);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'});
+      
+      ctx.font = '30px "Permanent Marker", cursive'; // Need to ensure font is loaded, fallback to cursive
+      ctx.fillStyle = '#4b5563'; // gray-600
+      ctx.textAlign = 'center';
+      
+      // Rotate text slightly like in CSS
+      ctx.save();
+      ctx.translate(width / 2, height - 50);
+      ctx.rotate(-1 * Math.PI / 180);
+      ctx.fillText(timeStr, 0, 0);
+      ctx.restore();
+
+      // Trigger Download
+      const link = document.createElement('a');
+      link.download = `retrosnap-${data.id}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.9);
+      link.click();
+    };
   };
 
   useEffect(() => {
@@ -153,34 +214,44 @@ export const Photo: React.FC<PhotoProps> = ({
        {isSelected && (
          <>
             {/* Border Highlight */}
-            <div className="absolute -inset-2 border-2 border-blue-400/50 rounded-lg pointer-events-none"></div>
+            <div className="absolute -inset-2 border-2 border-blue-400/40 rounded-lg pointer-events-none"></div>
             
-            {/* Delete Button */}
-            <button 
-              onClick={(e) => { e.stopPropagation(); onDelete(data.id); }}
-              className="absolute -top-4 -left-4 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md hover:bg-red-600 z-20 cursor-pointer hover:scale-110 transition-transform"
-              title="Delete"
-            >
-              <X size={14} />
-            </button>
+            {/* Elegant Action Pill (Top Center) */}
+            <div className="absolute -top-12 right-0 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-sm border border-gray-200/60 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
+               <button 
+                  onClick={savePhoto}
+                  className="p-1.5 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-full transition-colors"
+                  title="Save Photo"
+               >
+                  <Download size={16} />
+               </button>
+               <div className="w-[1px] h-4 bg-gray-300"></div>
+               <button 
+                  onClick={(e) => { e.stopPropagation(); onDelete(data.id); }}
+                  className="p-1.5 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-full transition-colors"
+                  title="Delete Photo"
+               >
+                  <Trash2 size={16} />
+               </button>
+            </div>
 
             {/* Rotate Handle (Top Center) */}
             <div 
-              className="absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 bg-white text-gray-700 rounded-full shadow-lg flex items-center justify-center cursor-move z-20 hover:bg-blue-50 border border-gray-200"
+              className="absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 bg-white text-gray-700 rounded-full shadow-sm border border-gray-200 flex items-center justify-center cursor-move z-20 hover:bg-blue-50 transition-colors"
               onMouseDown={handleRotateStart}
               title="Rotate"
             >
-              <div className="h-4 w-[1px] bg-blue-400 absolute -bottom-4 left-1/2 pointer-events-none"></div>
-              <RotateCw size={16} />
+              <div className="h-4 w-[1px] bg-blue-400 absolute -bottom-4 left-1/2 pointer-events-none opacity-50"></div>
+              <RotateCw size={14} />
             </div>
 
             {/* Resize Handle (Bottom Right) */}
             <div 
-              className="absolute -bottom-4 -right-4 w-8 h-8 bg-white text-gray-700 rounded-full shadow-lg flex items-center justify-center cursor-nwse-resize z-20 hover:bg-blue-50 border border-gray-200"
+              className="absolute -bottom-3 -right-3 w-7 h-7 bg-white text-gray-700 rounded-full shadow-sm border border-gray-200 flex items-center justify-center cursor-nwse-resize z-20 hover:bg-blue-50 transition-colors"
               onMouseDown={handleResizeStart}
               title="Resize"
             >
-              <Maximize2 size={16} />
+              <Maximize2 size={12} />
             </div>
          </>
        )}

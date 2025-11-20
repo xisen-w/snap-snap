@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Camera, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -9,6 +8,15 @@ interface PolaroidCameraProps {
   currentPrintColor?: string;
   onDragStartFromCamera: (e: React.MouseEvent) => void;
 }
+
+// Enhanced Tints: Stronger vignette opacity (0.8) and deeper RGB values for the "darkness"
+const TINT_OPTIONS = [
+  { id: 'neutral', name: 'Standard', color: 'bg-zinc-500', vignette: 'rgba(15,15,15,0.75)', overlay: null },
+  { id: 'blue', name: 'Midnight', color: 'bg-blue-600', vignette: 'rgba(0, 15, 70, 0.85)', overlay: 'rgba(0, 80, 255, 0.08)' },
+  { id: 'red', name: 'Velvet', color: 'bg-red-700', vignette: 'rgba(70, 5, 20, 0.85)', overlay: 'rgba(255, 40, 0, 0.08)' },
+  { id: 'emerald', name: 'Forest', color: 'bg-emerald-700', vignette: 'rgba(5, 50, 30, 0.85)', overlay: 'rgba(0, 255, 100, 0.06)' },
+  { id: 'amber', name: 'Sepia', color: 'bg-amber-500', vignette: 'rgba(60, 40, 10, 0.85)', overlay: 'rgba(255, 180, 0, 0.1)' },
+];
 
 export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({ 
   onCapture, 
@@ -23,6 +31,9 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [flashActive, setFlashActive] = useState(false);
   const [isFolded, setIsFolded] = useState(false);
+  const [selectedTintIndex, setSelectedTintIndex] = useState(0);
+
+  const currentTint = TINT_OPTIONS[selectedTintIndex];
 
   // Initialize Camera
   useEffect(() => {
@@ -88,7 +99,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         context.scale(-1, 1);
         
         // "Polaroid" Recipe: Low contrast, warm tint, slightly muted saturation
-        context.filter = 'contrast(0.9) brightness(1.1) saturate(0.8) sepia(0.2) hue-rotate(-5deg)';
+        context.filter = 'contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)';
         context.drawImage(
           video,
           xOffset, yOffset, size, size,
@@ -96,11 +107,20 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         );
         context.restore();
 
+        // 1.5 Tint Overlay (Color Cast on the whole image)
+        if (currentTint.overlay) {
+          context.save();
+          context.globalCompositeOperation = 'overlay';
+          context.fillStyle = currentTint.overlay;
+          context.fillRect(0, 0, size, size);
+          context.restore();
+        }
+
         // 2. "Bloom" Effect - Soft diffuse lighting
         // We draw the image again with a blur and screen blend mode to make highlights glow
         context.save();
         context.globalCompositeOperation = 'screen';
-        context.filter = 'blur(10px) opacity(0.5) brightness(1.2)';
+        context.filter = 'blur(12px) opacity(0.4) brightness(1.1)';
         context.translate(size, 0);
         context.scale(-1, 1);
         context.drawImage(
@@ -110,27 +130,25 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         );
         context.restore();
 
-        // 3. Vignette - Darken edges
+        // 3. Vignette - Darken edges with DEEP TINTED color
+        // Using 'multiply' with a colored gradient creates the "colored darkness" effect
         context.save();
         context.globalCompositeOperation = 'multiply';
-        const gradient = context.createRadialGradient(size/2, size/2, size * 0.4, size/2, size/2, size * 0.85);
+        // Moved start stop inward (0.35) to make vignette more apparent
+        const gradient = context.createRadialGradient(size/2, size/2, size * 0.35, size/2, size/2, size * 0.95);
         gradient.addColorStop(0, 'rgba(0,0,0,0)');
-        gradient.addColorStop(1, 'rgba(20,10,10,0.6)'); // Slight brownish/black
+        gradient.addColorStop(1, currentTint.vignette); 
         context.fillStyle = gradient;
         context.fillRect(0, 0, size, size);
         context.restore();
 
         // 4. Texture/Grain - Manual pixel manipulation
-        // This gives the "analog" unpolished feel
         try {
           const imageData = context.getImageData(0, 0, size, size);
           const data = imageData.data;
           // Add noise
           for (let i = 0; i < data.length; i += 4) {
-            // Generate random noise value (-20 to 20)
-            const noise = (Math.random() - 0.5) * 40;
-            
-            // Add noise to RGB channels
+            const noise = (Math.random() - 0.5) * 35;
             data[i] = Math.min(255, Math.max(0, data[i] + noise));     // R
             data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise)); // G
             data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise)); // B
@@ -147,11 +165,10 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         }, 100);
       }
     }
-  }, [isPrinting, isFolded, onCapture]);
+  }, [isPrinting, isFolded, onCapture, currentTint]);
 
   return (
     // The container moves down when folded.
-    // We use translate-y-[300px] to hide most of the body, leaving just the top bar visible.
     <div 
       className={`relative w-[320px] h-[340px] select-none transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isFolded ? 'translate-y-[270px]' : 'translate-y-0'}`}
     >
@@ -252,23 +269,45 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
            </div>
         </div>
 
-        {/* Top Section (Viewfinder + Flash Block) */}
+        {/* Top Section (Viewfinder + Flash Block + TINT SELECTOR) */}
         <div 
           className="absolute top-0 w-full h-[90px] bg-[#fdfbf7] rounded-t-[20px] shadow-md z-20 flex items-center justify-between px-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={() => isFolded && setIsFolded(false)}
         >
-           
            {isFolded && (
              <div className="absolute inset-0 flex items-center justify-center text-gray-400 font-sans font-semibold tracking-wider animate-pulse pointer-events-none z-40">
                CLICK TO OPEN
              </div>
            )}
 
+           {/* TINT SELECTOR (Top Left) */}
+           <div 
+             className={`absolute top-2 left-4 z-50 flex flex-col gap-1 transition-opacity ${isFolded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+             onClick={(e) => e.stopPropagation()}
+           >
+              <div className="text-[8px] text-gray-400 font-sans font-bold uppercase tracking-widest mb-1 ml-1">
+                Tint
+              </div>
+              <div className="flex gap-1 bg-gray-200/80 p-1.5 rounded-full border border-gray-300/50 backdrop-blur-sm shadow-sm">
+                {TINT_OPTIONS.map((tint, index) => (
+                  <button
+                    key={tint.id}
+                    onClick={() => setSelectedTintIndex(index)}
+                    className={`w-3.5 h-3.5 rounded-full shadow-sm transition-all hover:scale-125 active:scale-95 ${tint.color} 
+                      ${selectedTintIndex === index ? 'ring-2 ring-offset-1 ring-gray-400 scale-125' : 'opacity-60 hover:opacity-100'}
+                    `}
+                    title={tint.name}
+                  />
+                ))}
+              </div>
+           </div>
+
+
            {/* Eject Slot Line */}
            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[260px] h-[6px] bg-[#1a1a1a] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]"></div>
 
            {/* Flash Unit */}
-           <div className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-opacity duration-500 ${isFolded ? 'opacity-20' : 'opacity-100'}`}>
+           <div className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-opacity duration-500 ml-auto mr-[70px] ${isFolded ? 'opacity-20' : 'opacity-100'}`}>
              <div className="w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-gray-200 to-gray-400 opacity-80 flex items-center justify-center">
                <Zap className="text-yellow-600 opacity-20 w-6 h-6" />
              </div>
@@ -276,7 +315,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
            </div>
 
            {/* Viewfinder (Real Video Feed) */}
-           <div className={`relative w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)] transition-opacity duration-500 ${isFolded ? 'opacity-0' : 'opacity-100'}`}>
+           <div className={`absolute top-[15px] right-6 w-[60px] h-[60px] bg-[#111] rounded border-4 border-[#333] overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,1)] transition-opacity duration-500 ${isFolded ? 'opacity-0' : 'opacity-100'}`}>
               {!stream && !permissionError && (
                  <div className="absolute inset-0 flex items-center justify-center">
                     <Camera className="text-gray-600 animate-pulse" />
