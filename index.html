@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RetroSnap Instant Camera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              hand: ['"Permanent Marker"', 'cursive'],
+              sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              'eject': 'eject 1.5s ease-out forwards',
+              'develop': 'develop 5s ease-in-out forwards',
+              'flash': 'flash 0.2s ease-out',
+            },
+            keyframes: {
+              eject: {
+                '0%': { transform: 'translateY(100%)' },
+                '100%': { transform: 'translateY(-60%)' }, // Sticks out partially
+              },
+              develop: {
+                '0%': { filter: 'brightness(3) blur(4px) grayscale(1) opacity(0.8)' },
+                '50%': { filter: 'brightness(1.5) blur(2px) grayscale(0.5) opacity(1)' },
+                '100%': { filter: 'brightness(1) blur(0) grayscale(0) opacity(1)' },
+              },
+              flash: {
+                '0%': { opacity: 1 },
+                '100%': { opacity: 0 },
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #e5e7eb;
+        background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+        background-size: 24px 24px;
+        overflow: hidden; /* Prevent scrolling from dragging */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

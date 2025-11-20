@@ -1,0 +1,7 @@
+{
+  "name": "RetroSnap Instant Camera",
+  "description": "A realistic instant camera experience where photos develop before your eyes.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
