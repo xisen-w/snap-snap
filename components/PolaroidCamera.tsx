@@ -32,6 +32,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
   const [flashActive, setFlashActive] = useState(false);
   const [isFolded, setIsFolded] = useState(false);
   const [selectedTintIndex, setSelectedTintIndex] = useState(0);
+  const [isFlashEnabled, setIsFlashEnabled] = useState(false);
 
   const currentTint = TINT_OPTIONS[selectedTintIndex];
 
@@ -76,8 +77,11 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
   const handleShutterPress = useCallback(() => {
     if (isPrinting || isFolded) return; 
     
-    setFlashActive(true);
-    setTimeout(() => setFlashActive(false), 150);
+    // Only trigger visual flash if enabled
+    if (isFlashEnabled) {
+      setFlashActive(true);
+      setTimeout(() => setFlashActive(false), 150);
+    }
 
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -93,13 +97,21 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         canvas.width = size;
         canvas.height = size;
 
-        // 1. Base Render - Mirror & Vintage Color Grading
+        // 1. Base Render - Mirror & Grading
         context.save();
         context.translate(size, 0);
         context.scale(-1, 1);
         
-        // "Polaroid" Recipe: Low contrast, warm tint, slightly muted saturation
-        context.filter = 'contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)';
+        if (isFlashEnabled) {
+          // DIRECT FLASH AESTHETIC
+          // Harsh lighting: High contrast, high brightness (overexposure), saturation bump for foreground
+          context.filter = 'contrast(1.4) brightness(1.3) saturate(1.1) sepia(0.05)';
+        } else {
+          // SOFT VINTAGE AESTHETIC
+          // Diffused: Lower contrast, slightly lifted brightness, desaturated, warm tint
+          context.filter = 'contrast(0.9) brightness(1.1) saturate(0.85) sepia(0.15) hue-rotate(-5deg)';
+        }
+        
         context.drawImage(
           video,
           xOffset, yOffset, size, size,
@@ -116,26 +128,35 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
           context.restore();
         }
 
-        // 2. "Bloom" Effect - Soft diffuse lighting
-        // We draw the image again with a blur and screen blend mode to make highlights glow
-        context.save();
-        context.globalCompositeOperation = 'screen';
-        context.filter = 'blur(12px) opacity(0.4) brightness(1.1)';
-        context.translate(size, 0);
-        context.scale(-1, 1);
-        context.drawImage(
-          video,
-          xOffset, yOffset, size, size,
-          0, 0, size, size
-        );
-        context.restore();
+        // 2. Bloom Effect - Only for Soft Mode
+        // For Flash mode, we skip diffuse bloom to keep "crisp details" as requested
+        if (!isFlashEnabled) {
+          context.save();
+          context.globalCompositeOperation = 'screen';
+          context.filter = 'blur(12px) opacity(0.4) brightness(1.1)';
+          context.translate(size, 0);
+          context.scale(-1, 1);
+          context.drawImage(
+            video,
+            xOffset, yOffset, size, size,
+            0, 0, size, size
+          );
+          context.restore();
+        }
 
-        // 3. Vignette - Darken edges with DEEP TINTED color
-        // Using 'multiply' with a colored gradient creates the "colored darkness" effect
+        // 3. Vignette - Darken edges
         context.save();
         context.globalCompositeOperation = 'multiply';
-        // Moved start stop inward (0.35) to make vignette more apparent
-        const gradient = context.createRadialGradient(size/2, size/2, size * 0.35, size/2, size/2, size * 0.95);
+        
+        let gradient;
+        if (isFlashEnabled) {
+          // Flash Falloff: Tighter vignette (starts closer to center) to simulate light dropping off rapidly
+          gradient = context.createRadialGradient(size/2, size/2, size * 0.3, size/2, size/2, size * 0.85);
+        } else {
+          // Natural Vignette: Wider, softer falloff
+          gradient = context.createRadialGradient(size/2, size/2, size * 0.35, size/2, size/2, size * 0.95);
+        }
+        
         gradient.addColorStop(0, 'rgba(0,0,0,0)');
         gradient.addColorStop(1, currentTint.vignette); 
         context.fillStyle = gradient;
@@ -143,12 +164,14 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         context.restore();
 
         // 4. Texture/Grain - Manual pixel manipulation
+        // Flash might make grain more visible in shadows, but canvas processing is uniform.
         try {
           const imageData = context.getImageData(0, 0, size, size);
           const data = imageData.data;
-          // Add noise
+          const grainIntensity = isFlashEnabled ? 30 : 35; // Slightly cleaner grain for flash "crispness"
+          
           for (let i = 0; i < data.length; i += 4) {
-            const noise = (Math.random() - 0.5) * 35;
+            const noise = (Math.random() - 0.5) * grainIntensity;
             data[i] = Math.min(255, Math.max(0, data[i] + noise));     // R
             data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise)); // G
             data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise)); // B
@@ -165,7 +188,7 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
         }, 100);
       }
     }
-  }, [isPrinting, isFolded, onCapture, currentTint]);
+  }, [isPrinting, isFolded, onCapture, currentTint, isFlashEnabled]);
 
   return (
     // The container moves down when folded.
@@ -306,12 +329,21 @@ export const PolaroidCamera: React.FC<PolaroidCameraProps> = ({
            {/* Eject Slot Line */}
            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[260px] h-[6px] bg-[#1a1a1a] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]"></div>
 
-           {/* Flash Unit */}
-           <div className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-opacity duration-500 ml-auto mr-[70px] ${isFolded ? 'opacity-20' : 'opacity-100'}`}>
-             <div className="w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-gray-200 to-gray-400 opacity-80 flex items-center justify-center">
-               <Zap className="text-yellow-600 opacity-20 w-6 h-6" />
+           {/* Flash Unit - Click to Toggle */}
+           <div 
+             onClick={(e) => {
+               e.stopPropagation();
+               setIsFlashEnabled(!isFlashEnabled);
+             }}
+             className={`relative w-[90px] h-[50px] bg-[#d1d5db] rounded flex items-center justify-center border-2 border-gray-300 shadow-inner overflow-hidden transition-all duration-300 ml-auto mr-[70px] cursor-pointer hover:brightness-105 active:scale-95 ${isFolded ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}
+             title={isFlashEnabled ? "Flash On" : "Flash Off"}
+           >
+             <div className={`w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] transition-colors duration-300 flex items-center justify-center
+               ${isFlashEnabled ? 'from-white via-gray-100 to-gray-300' : 'from-gray-200 via-gray-300 to-gray-400'}
+             `}>
+               <Zap className={`w-6 h-6 transition-all duration-300 ${isFlashEnabled ? 'text-yellow-500 opacity-100 fill-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-gray-600 opacity-20'}`} />
              </div>
-             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNTAgNEgwVjB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-50"></div>
+             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNTAgNEgwVjB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-50 pointer-events-none"></div>
            </div>
 
            {/* Viewfinder (Real Video Feed) */}
